@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HPLC Didactic Simulator - Lab to IT Data Workflow</title>
+    <style>
+        :root {
+            --bg-dark: #090d16;
+            --panel-bg: #1e293b;
+            --border-color: #475569;
+            --cyan-glow: #06b6d4;
+            --emerald-glow: #10b981;
+            --amber-glow: #f59e0b;
+            --red-glow: #ef4444;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+        body {
+            background-color: var(--bg-dark); color: #f8fafc;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            min-height: 100vh; overflow: hidden; padding: 20px;
+        }
+
+        .didactic-banner {
+            width: 1420px; background: #0f172a; border: 2px solid var(--border-color);
+            border-radius: 12px; padding: 15px; margin-bottom: 20px;
+            text-align: center; color: #cbd5e1; font-size: 0.8rem; line-height: 1.4;
+        }
+        .didactic-banner h2 { color: #f8fafc; font-size: 1rem; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }
+
+        .lab-workspace {
+            width: 1420px; height: 900px;
+            background: linear-gradient(180deg, #111827 0%, #1e293b 75%, #0f172a 100%);
+            border: 3px solid var(--border-color); border-radius: 16px;
+            padding: 20px; display: grid; grid-template-columns: 480px 1fr; gap: 20px;
+            box-shadow: 0 40px 80px -15px rgba(0,0,0,0.8);
+        }
+
+        .physical-viewport { display: flex; flex-direction: column; gap: 15px; overflow-y: auto; padding-right: 5px; }
+        .physical-viewport::-webkit-scrollbar { width: 6px; }
+        .physical-viewport::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+
+        .module-card {
+            background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 10px;
+            padding: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+        }
+
+        .module-header {
+            font-size: 0.85rem; font-weight: 800; color: #38bdf8;
+            border-bottom: 1px solid #334155; padding-bottom: 4px; margin-bottom: 12px;
+            text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; gap: 6px;
+        }
+
+        /* WORKBENCH */
+        .bench-surface {
+            background: #090d16; border: 2px dashed #475569; border-radius: 8px;
+            height: 120px; display: flex; align-items: flex-end; justify-content: space-around;
+            padding: 10px; position: relative; margin-bottom: 12px;
+        }
+        .bench-surface::before {
+            content: "ANALYTICAL WORKBENCH (DRAG SOLID + SOLVENT TO CREATE PAYLOAD)";
+            position: absolute; top: 6px; left: 10px; font-size: 0.62rem; color: #64748b; font-weight: bold;
+        }
+
+        .lab-asset { display: flex; flex-direction: column; align-items: center; cursor: grab; }
+        .lab-asset:active { cursor: grabbing; transform: scale(1.08); }
+        .lab-asset svg, .lab-asset span { pointer-events: none; }
+        .asset-tag { font-size: 0.6rem; color: #94a3b8; font-weight: bold; text-align: center; margin-top: 4px; }
+
+        .vial-frame { position: relative; width: 24px; height: 46px; pointer-events: none; }
+        .vial-glass {
+            position: absolute; bottom: 0; left: 2px; width: 20px; height: 36px;
+            border: 2px solid rgba(255,255,255,0.6); border-top: none; border-radius: 0 0 4px 4px;
+            background: rgba(255,255,255,0.08); overflow: hidden;
+        }
+        .vial-cap { position: absolute; top: 0; left: 0; width: 24px; height: 10px; background: #0284c7; border-radius: 2px; }
+        .vial-meniscus { position: absolute; bottom: 0; left: 0; width: 100%; height: 0%; background: #facc15; transition: height 0.6s ease; }
+
+        .sop-indicator-bar {
+            background: #7c2d12; color: #ffedd5; padding: 10px; font-size: 0.76rem; font-weight: bold;
+            border-radius: 6px; border: 1px solid #ea580c; text-align: center; margin-bottom: 12px; transition: all 0.3s ease;
+        }
+
+        /* CAROUSEL */
+        .autosampler-carousel { background: #334155; border-radius: 8px; padding: 12px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+        .carousel-slot {
+            aspect-ratio: 1; background: #090d16; border: 2px solid #475569; border-radius: 50%;
+            display: flex; justify-content: center; align-items: center; font-size: 0.65rem; color: #64748b; font-weight: bold; position: relative;
+        }
+        .carousel-slot.target-active { border-color: var(--cyan-glow); border-style: dashed; background: rgba(6,182,212,0.1); }
+
+        .inject-btn {
+            width: 100%; padding: 12px; background: linear-gradient(135deg, #0284c7, #06b6d4);
+            color: white; border: 1px solid #0369a1; border-radius: 6px; margin-top: 10px;
+            font-weight: bold; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+        }
+        .inject-btn:disabled { background: #334155; border-color: #1e293b; color: #64748b; cursor: not-allowed; }
+
+        /* COLUMN GRAPHIC */
+        .column-graphic {
+            width: 100%; background: #020617; border: 2px solid #334155; border-radius: 8px; padding: 10px;
+            position: relative; overflow: hidden; margin-top: 5px;
+        }
+        .detector-module {
+            position: absolute; right: 0; top: 0; bottom: 0; width: 60px; background: rgba(6,182,212,0.1);
+            border-left: 2px dashed var(--cyan-glow); display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 4px;
+            transition: all 0.1s;
+        }
+        .detector-icon-ring {
+            border: 2px solid var(--cyan-glow); color: var(--cyan-glow); border-radius: 50%; padding: 6px; margin-bottom: 2px;
+            transition: all 0.1s; display: flex; align-items: center; justify-content: center;
+        }
+
+        /* CONTROLS & DYNAMIC ALERT BOXES */
+        .slider-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+        .input-slider-block { display: flex; flex-direction: column; gap: 4px; }
+        .input-slider-block label { font-size: 0.76rem; color: #94a3b8; font-weight: bold;}
+        .slider-data { font-family: monospace; color: #facc15; float: right; }
+        .input-slider-block input[type="range"] { width: 100%; accent-color: var(--cyan-glow); cursor: pointer; }
+
+        .concept-insight-box {
+            background: rgba(15, 23, 42, 0.5); border-left: 3px solid #64748b;
+            padding: 8px; font-size: 0.72rem; color: #cbd5e1; margin-top: 4px; border-radius: 0 4px 4px 0; line-height: 1.35;
+            transition: all 0.3s ease;
+        }
+
+        /* RIGHT VIEWPORT (SOFTWARE) */
+        .software-viewport { display: flex; flex-direction: column; gap: 15px; }
+        .monitor-frame {
+            background: #020617; border: 4px solid #334155; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 10px;
+        }
+        .pda-banner { display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem; border-bottom: 1px solid #1e293b; padding-bottom: 6px; }
+        
+        canvas { background: #030712; border: 1px solid #1e293b; border-radius: 4px; width: 100%; height: 260px; }
+
+        .table-scroll-container { background: var(--panel-bg); border-radius: 6px; overflow: hidden; border: 1px solid var(--border-color); }
+        .results-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.72rem; }
+        .results-table th { background: #334155; color: #f8fafc; font-weight: bold; padding: 8px; border-bottom: 1px solid var(--border-color); }
+        .th-it-desc { display: block; font-size: 0.58rem; color: #38bdf8; font-weight: normal; margin-top: 2px; text-transform: uppercase;}
+        .results-table td { padding: 8px; border-bottom: 1px solid #334155; font-family: monospace; }
+        .results-table tr:hover { background: rgba(56, 189, 248, 0.04); }
+
+        .export-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .btn-export {
+            padding: 12px; font-weight: bold; font-size: 0.8rem; border-radius: 6px; border: none; cursor: pointer; transition: all 0.2s;
+        }
+        .btn-pdf { background: #dc2626; color: white; border: 1px solid #b91c1c; }
+        .btn-json { background: #10b981; color: #022c22; border: 1px solid #059669; }
+        .btn-export:disabled { background: #334155; color: #64748b; cursor: not-allowed; border: none; }
+
+        /* MODALS (JSON & PDF) */
+        #json-modal {
+            display: none; position: absolute; top: 20px; right: 20px; width: 450px; background: #0f172a;
+            border: 2px solid #38bdf8; border-radius: 8px; padding: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); z-index: 100;
+        }
+        #json-modal pre { font-family: monospace; font-size: 0.7rem; color: #4ade80; white-space: pre-wrap; overflow-y: auto; max-height: 400px; }
+        .close-btn { float: right; cursor: pointer; color: white; font-weight: bold; font-size: 1.2rem; }
+
+        #report-modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); z-index: 200; justify-content: center; align-items: center; padding: 20px;
+        }
+        .report-content {
+            background: white; color: #334155; width: 800px; max-width: 100%; padding: 40px;
+            border-radius: 8px; position: relative; max-height: 90vh; overflow-y: auto;
+        }
+        
+        /* PDF REPORT STYLES */
+        .pdf-title { text-align: center; border-bottom: 2px solid #334155; padding-bottom: 10px; font-family: Arial, sans-serif; margin-bottom: 20px; }
+        .pdf-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; background: #f1f5f9; padding: 15px; border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 12px;}
+        .pdf-table { width: 100%; border-collapse: collapse; margin-top: 20px; font-family: Arial, sans-serif; font-size: 11px;}
+        .pdf-table th { background: #334155; color: white; padding: 8px; text-align: left; }
+        .pdf-table td { border: 1px solid #cbd5e1; padding: 8px; font-family: monospace; }
+        .pdf-footer { margin-top: 50px; font-size: 10px; color: #64748b; border-top: 1px dashed #cbd5e1; padding-top: 10px; font-family: Arial, sans-serif;}
+        
+        .print-btn {
+            background: #1e3a8a; color: white; padding: 10px 20px; border: none; border-radius: 4px; 
+            cursor: pointer; font-weight: bold; margin-top: 20px; display: block; width: 100%;
+        }
+
+        /* PRINT CSS - MAGIC HAPPENS HERE */
+        @media print {
+            body * { visibility: hidden; }
+            #report-modal, #report-modal * { visibility: visible; }
+            #report-modal { position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: white; padding: 0; display: block; }
+            .report-content { width: 100%; padding: 0; max-height: none; overflow: visible; box-shadow: none; border-radius: 0; }
+            .no-print { display: none !important; }
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="didactic-banner no-print">
+    <h2>HPLC Lab-to-LIMS Integration Simulator</h2>
+    <div><strong>Goal for Engineers:</strong> Understand how physical lab actions translate into data structures. Learn standard vocabulary (Retention Time, Area, Plates, Tailing) and extract the resulting data payload via Legacy Report (PDF parsing) or Modern API (JSON payload).</div>
+</div>
+
+<div class="lab-workspace no-print">
+    
+    <div class="physical-viewport">
+        
+        <div class="module-card">
+            <div class="module-header">Sample Prep & Autosampler (Queue)</div>
+            
+            <div class="sop-indicator-bar" id="sop-flow-tag">
+                SOP 1: Drag RAW API (Solid) into the Empty Vial to begin payload.
+            </div>
+
+            <div class="bench-surface" id="physical-bench">
+                <div class="lab-asset" id="asset-powder" draggable="true" ondragstart="handleDragInit(event)">
+                    <svg width="32" height="38" viewBox="0 0 40 50">
+                        <path d="M12 12 H28 V18 L36 42 C38 46 35 48 30 48 H10 C5 48 2 46 4 42 L12 18 Z" fill="rgba(24acc15, 0.15)" stroke="#facc15" stroke-width="2.5"/>
+                        <ellipse cx="20" cy="38" rx="11" ry="5" fill="#facc15"/>
+                    </svg>
+                    <span class="asset-tag">RAW API<br>Solid Sample</span>
+                </div>
+
+                <div class="lab-asset" id="asset-diluent" draggable="true" ondragstart="handleDragInit(event)">
+                    <svg width="26" height="42" viewBox="0 0 30 60">
+                        <rect x="4" y="16" width="22" height="38" rx="4" fill="rgba(56,189,248,0.15)" stroke="#38bdf8" stroke-width="2.5"/>
+                        <rect x="10" y="4" width="10" height="12" fill="#475569" stroke="#334155"/>
+                    </svg>
+                    <span class="asset-tag">SOLVENT<br>Diluent</span>
+                </div>
+
+                <div class="lab-asset" id="target-vial-node" ondragover="allowDrop(event)" ondrop="handleVialPreparation(event)">
+                    <div class="vial-frame">
+                        <div class="vial-cap"></div>
+                        <div class="vial-glass">
+                            <div class="vial-meniscus" id="fluid-level"></div>
+                        </div>
+                    </div>
+                    <span class="asset-tag" id="vial-label">Empty<br>Vial</span>
+                </div>
+            </div>
+
+            <div style="font-size: 0.68rem; color: #94a3b8; font-weight: 800;">FIFO PAYLOAD QUEUE (AUTOSAMPLER)</div>
+            <div class="autosampler-carousel" id="carousel-tray" ondragover="allowDrop(event)" ondrop="handleCarouselLoading(event)">
+                <div class="carousel-slot target-active" id="slot-idx-1">1</div>
+                <div class="carousel-slot">2</div>
+                <div class="carousel-slot">3</div>
+                <div class="carousel-slot">4</div>
+                <div class="carousel-slot">5</div>
+            </div>
+
+            <button class="inject-btn" id="injection-trigger-btn" onclick="executeBatchRun()" disabled>INJECT SAMPLE (SEND TO DETECTOR)</button>
+        </div>
+
+        <div class="module-card">
+            <div class="module-header">Physical Run Parameters (Method)</div>
+            
+            <div class="slider-grid">
+                <div class="input-slider-block">
+                    <label>Flow Rate (mL/min) <span class="slider-data" id="lbl-flow">1.00</span></label>
+                    <input type="range" id="cfg-flow" min="0.5" max="2.0" step="0.05" value="1.0" oninput="recomputeSystemConcepts()">
+                </div>
+                <div class="input-slider-block">
+                    <label>Mobile Phase (%B) <span class="slider-data" id="lbl-phase">65</span></label>
+                    <input type="range" id="cfg-phase" min="40" max="85" step="5" value="65" oninput="recomputeSystemConcepts()">
+                </div>
+            </div>
+
+            <div class="concept-insight-box" id="insight-flow"></div>
+            <div class="concept-insight-box" id="insight-phase"></div>
+
+            <div class="input-slider-block" style="margin-top:10px;">
+                <label>Injection Volume (µL) <span class="slider-data" id="lbl-vol">10.0</span></label>
+                <input type="range" id="cfg-vol" min="2.0" max="20.0" step="1.0" value="10.0" oninput="recomputeSystemConcepts()">
+            </div>
+            <div class="concept-insight-box" id="insight-vol"></div>
+
+            <div class="column-graphic">
+                <div style="font-size: 0.6rem; color: #94a3b8; font-weight: bold; margin-bottom: 5px;">ANALYTICAL COLUMN (DATA SEPARATION ENGINE)</div>
+                <svg width="320" height="40" viewBox="0 0 320 40" style="display:block;">
+                    <rect x="0" y="5" width="320" height="30" rx="4" fill="#030712" stroke="#475569" stroke-width="1.5"/>
+                    <rect id="band-mixed" x="-50" y="5" width="10" height="30" fill="#94a3b8" />
+                    <rect id="band-1" x="-50" y="5" width="4" height="30" fill="cyan" />
+                    <rect id="band-2" x="-50" y="5" width="6" height="30" fill="magenta" />
+                    <rect id="band-api" x="-50" y="5" width="10" height="30" fill="emerald" />
+                    <rect id="band-4" x="-50" y="5" width="8" height="30" fill="orange" />
+                </svg>
+                <div class="detector-module" id="detector-container">
+                    <div class="detector-icon-ring" id="detector-ring">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="12" r="10"></circle><path d="M12 22v-3"></path><path d="M12 5V2"></path><path d="M22 12h-3"></path><path d="M5 12H2"></path></svg>
+                    </div>
+                    <div style="font-size: 0.55rem; color: var(--cyan-glow); font-weight: 800; text-align: center;">OPTICAL<br>DETECTOR</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="software-viewport">
+        
+        <div class="monitor-frame">
+            <div class="pda-banner">
+                <span style="font-weight:700; color:#e2e8f0;">Chromatography Data System (Log Monitor)</span>
+                <span id="system-status" style="color:#94a3b8; font-family:monospace; font-weight: bold;">STATUS: IDLE</span>
+            </div>
+            
+            <canvas id="chromatogramCanvas" width="880" height="260"></canvas>
+
+            <div class="table-scroll-container">
+                <table class="results-table" id="results-table">
+                    <thead>
+                        <tr>
+                            <th>Peak ID<span class="th-it-desc">Entity ID</span></th>
+                            <th>Comp. Name<span class="th-it-desc">Parsed String</span></th>
+                            <th>Retention Time<span class="th-it-desc">Event Timestamp</span></th>
+                            <th>Area<span class="th-it-desc">Data Magnitude</span></th>
+                            <th>Plates (N)<span class="th-it-desc">System Efficiency</span></th>
+                            <th>Tailing (T)<span class="th-it-desc">Data Distortion</span></th>
+                            <th>ALCOA+ Status<span class="th-it-desc">Integrity Check</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td colspan="7" style="text-align:center; color:#64748b; padding:18px; font-style: italic;">System awaiting injection to generate integration matrix.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div style="background: #0f172a; border: 2px solid #334155; border-radius: 8px; padding: 20px;">
+            <h3 style="color:#f8fafc; font-size:1rem; margin-bottom: 5px;">Data Extraction & Integration Interfaces</h3>
+            <p style="font-size:0.75rem; color:#94a3b8; margin-bottom: 15px;">Generate the data payload output. In LIMS integration, you will either parse the legacy human-readable PDF via regex/templates, or consume the JSON payload via REST API.</p>
+            
+            <div class="export-actions">
+                <button class="btn-export btn-pdf" id="btn-pdf" onclick="openPDFModal()" disabled>📄 EXPORT PDF (LEGACY PARSING)</button>
+                <button class="btn-export btn-json" id="btn-json" onclick="showJSONPayload()" disabled>{" "} VIEW JSON (API ENDPOINT)</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="json-modal" class="no-print">
+    <span class="close-btn" onclick="document.getElementById('json-modal').style.display='none'">X</span>
+    <h4 style="color:white; margin-bottom: 10px;">API Payload Response (JSON)</h4>
+    <pre id="json-output"></pre>
+</div>
+
+<div id="report-modal">
+    <div class="report-content">
+        <span class="close-btn no-print" style="color: #334155;" onclick="document.getElementById('report-modal').style.display='none'">X</span>
+        
+        <h2 class="pdf-title">Certificate of Analysis - Instrument Output</h2>
+        <div class="pdf-meta">
+            <div><b>Sample ID:</b> SMP-2026-09142<br><b>Acquisition:</b> <span id="pdf-date"></span></div>
+            <div><b>Method:</b> USP_ASSAY_V2<br><b>System Suitability:</b> <span id="pdf-status"></span></div>
+        </div>
+        
+        <table class="pdf-table">
+            <thead><tr><th>Peak ID</th><th>Name</th><th>Retention Time (min)</th><th>Area (µV·s)</th><th>Plates (N)</th><th>Tailing (T)</th><th>ALCOA+ Status</th></tr></thead>
+            <tbody id="pdf-tbody"></tbody>
+        </table>
+        
+        <div class="pdf-footer">
+            * This document is generated for LIMS parser training.<br>
+            * Data Integrity (ALCOA+) Check applied to Suitability Criteria (N > 5000, T < 1.5).
+        </div>
+
+        <button class="print-btn no-print" onclick="window.print()">🖨️ Print / Save as PDF</button>
+    </div>
+</div>
+
+<script>
+    let payloadState = { apiSolidAdded: false, solventDiluentAdded: false };
+    let interactiveVialState = "VACANT"; 
+    let systemRunActive = false;
+
+    let currentFlow = 1.0;
+    let currentPhaseB = 65;
+    let currentVol = 10.0;
+    
+    const canvas = document.getElementById('chromatogramCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    let components = [
+        { id: 1, name: "Impurity C", baseTR: 1.85, baseArea: 1240, width: 0.08 },
+        { id: 2, name: "Impurity A", baseTR: 3.12, baseArea: 3890, width: 0.12 },
+        { id: 3, name: "Active API Main", baseTR: 5.45, baseArea: 985420, width: 0.22 },
+        { id: 4, name: "Impurity B", baseTR: 7.80, baseArea: 1110, width: 0.15 }
+    ];
+
+    let computedArraysForValidation = [];
+    let globalStatusPass = true;
+
+    // --- DRAG AND DROP MECHANICS ---
+    function handleDragInit(e) {
+        e.dataTransfer.setData("text/plain", e.target.id || e.currentTarget.id); 
+    }
+    function allowDrop(e) { e.preventDefault(); }
+
+    function handleVialPreparation(e) {
+        e.preventDefault();
+        const incomingId = e.dataTransfer.getData("text/plain");
+        if (interactiveVialState !== "VACANT") return;
+
+        if (incomingId === "asset-powder") {
+            payloadState.apiSolidAdded = true;
+            document.getElementById("asset-powder").style.display = 'none';
+            document.getElementById("fluid-level").style.background = '#facc15';
+            document.getElementById("fluid-level").style.height = '15%';
+            checkPayloadIntegrity();
+        } else if (incomingId === "asset-diluent") {
+            payloadState.solventDiluentAdded = true;
+            document.getElementById("asset-diluent").style.display = 'none';
+            document.getElementById("fluid-level").style.background = '#38bdf8';
+            document.getElementById("fluid-level").style.height = '65%';
+            checkPayloadIntegrity();
+        }
+    }
+
+    function checkPayloadIntegrity() {
+        const flowTag = document.getElementById("sop-flow-tag");
+        
+        if (payloadState.apiSolidAdded && !payloadState.solventDiluentAdded) {
+            flowTag.innerText = "SOP 2: Add SOLVENT to dissolve the API.";
+            document.getElementById("vial-label").innerHTML = "Solid API<br>(Needs Solvent)";
+        } else if (!payloadState.apiSolidAdded && payloadState.solventDiluentAdded) {
+            flowTag.innerText = "SOP 2: Add RAW API to the solvent.";
+            document.getElementById("vial-label").innerHTML = "Solvent<br>(Needs API)";
+        } else if (payloadState.apiSolidAdded && payloadState.solventDiluentAdded) {
+            flowTag.innerText = "SOP 3: Payload prepared. Drag Vial to Autosampler Slot 1.";
+            document.getElementById("vial-label").innerHTML = "Prepared<br>Sample";
+            document.getElementById("fluid-level").style.background = '#facc15';
+            
+            const targetedVialNode = document.getElementById("target-vial-node");
+            targetedVialNode.setAttribute("draggable", "true");
+            targetedVialNode.addEventListener("dragstart", handleDragInit);
+            interactiveVialState = "PREPARED";
+        }
+    }
+
+    function handleCarouselLoading(e) {
+        e.preventDefault();
+        const incomingId = e.dataTransfer.getData("text/plain");
+        
+        if (incomingId === "target-vial-node" && interactiveVialState === "PREPARED") {
+            const slot1 = document.getElementById("slot-idx-1");
+            const physicalVial = document.getElementById("target-vial-node");
+            
+            physicalVial.style.transform = "scale(0.58)";
+            physicalVial.style.marginTop = "-16px";
+            document.getElementById("vial-label").style.display = "none";
+            
+            slot1.appendChild(physicalVial);
+            slot1.style.background = "rgba(16, 185, 129, 0.18)";
+            slot1.style.borderColor = "#10b981";
+            
+            interactiveVialState = "QUEUED";
+            
+            const flowTag = document.getElementById("sop-flow-tag");
+            flowTag.innerText = "SOP 4: Sample ID 'SMP-2026-09142' queued. Click INJECT.";
+            flowTag.style.background = "#14532d"; flowTag.style.borderColor = "#22c55e";
+            
+            document.getElementById("injection-trigger-btn").disabled = false;
+        }
+    }
+
+    // --- SYSTEM DYNAMICS & ALERTS ---
+    function recomputeSystemConcepts() {
+        if(systemRunActive) return;
+        currentFlow = parseFloat(document.getElementById('cfg-flow').value);
+        currentPhaseB = parseInt(document.getElementById('cfg-phase').value);
+        currentVol = parseFloat(document.getElementById('cfg-vol').value);
+        
+        document.getElementById('lbl-flow').innerText = currentFlow.toFixed(2);
+        document.getElementById('lbl-phase').innerText = currentPhaseB;
+        document.getElementById('lbl-vol').innerText = currentVol.toFixed(1);
+
+        recomputeInsightExplanations();
+    }
+
+    function recomputeInsightExplanations() {
+        const insFlow = document.getElementById('insight-flow');
+        if (currentFlow < 0.8) {
+            insFlow.innerHTML = `<span style="color:#f59e0b; font-weight:bold;">⚠️ Low Flow Rate Warning:</span> Axial molecular diffusion broadens peak dimensions, reducing HETP column efficiency and increasing retention latency.<br><span style="color:#38bdf8; font-style:italic;">IT Equivalent: Low throughput. Process runs slowly without added quality.</span>`;
+            insFlow.style.borderLeftColor = "#f59e0b";
+            insFlow.style.background = "rgba(245, 158, 11, 0.1)";
+        } else if (currentFlow > 1.4) {
+            insFlow.innerHTML = `<span style="color:#ef4444; font-weight:bold;">🚨 Critical Shear & Pressure Overload:</span> Flow velocity exceeds Van Deemter limits! High hydraulic backpressure and fast linear velocity distort peak symmetry and cause incomplete mass transfer (LIMS OOS Risk).<br><span style="color:#38bdf8; font-style:italic;">IT Equivalent: Hardware Overclocking / Packet Collision. Rapid push causes data distortion.</span>`;
+            insFlow.style.borderLeftColor = "#ef4444";
+            insFlow.style.background = "rgba(239, 68, 68, 0.1)";
+        } else {
+            insFlow.innerHTML = `<span style="color:#10b981; font-weight:bold;">✅ Optimal Flow Velocity:</span> Flow rate balanced at Van Deemter setpoint (${currentFlow.toFixed(2)} mL/min). Mass transfer kinetics and longitudinal diffusion are optimized.`;
+            insFlow.style.borderLeftColor = "#10b981";
+            insFlow.style.background = "rgba(15, 23, 42, 0.5)";
+        }
+
+        const insPhase = document.getElementById('insight-phase');
+        if (currentPhaseB < 55) {
+            insPhase.innerHTML = `<span style="color:#f59e0b; font-weight:bold;">⚠️ Weak Eluotropic Strength:</span> Low organic fraction (%B) delays compound desorption. Peaks retain too long and spread across the baseline.<br><span style="color:#38bdf8; font-style:italic;">IT Equivalent: Weak Query/Filter. System takes too long to process and resolve entities.</span>`;
+            insPhase.style.borderLeftColor = "#f59e0b";
+            insPhase.style.background = "rgba(245, 158, 11, 0.1)";
+        } else if (currentPhaseB > 75) {
+            insPhase.innerHTML = `<span style="color:#ef4444; font-weight:bold;">🚨 Critical Resolution Loss:</span> Organic ratio is too high! Compounds co-elute rapidly near dead volume (k' → 0), causing band overlap and failing integration tests.<br><span style="color:#38bdf8; font-style:italic;">IT Equivalent: Over-aggressive Filter. Coarse parsing merges distinct entities into a single corrupted record.</span>`;
+            insPhase.style.borderLeftColor = "#ef4444";
+            insPhase.style.background = "rgba(239, 68, 68, 0.1)";
+        } else {
+            insPhase.innerHTML = `<span style="color:#10b981; font-weight:bold;">✅ Optimal Mobile Phase:</span> Target organic ratio (${currentPhaseB}%) matches C18 stationary phase requirements, ensuring distinct band separation.`;
+            insPhase.style.borderLeftColor = "#10b981";
+            insPhase.style.background = "rgba(15, 23, 42, 0.5)";
+        }
+
+        const insVol = document.getElementById('insight-vol');
+        if (currentVol > 15.0) {
+            insVol.innerHTML = `<span style="color:#ef4444; font-weight:bold;">🚨 Volumetric Column Overload:</span> Injection volume (${currentVol.toFixed(1)} µL) exceeds stationary bed capacity! Causes severe peak tailing (T > 1.5) and fronting, failing quality control specs.<br><span style="color:#38bdf8; font-style:italic;">IT Equivalent: Payload Buffer Overflow. Oversized payload corrupts peak geometry.</span>`;
+            insVol.style.borderLeftColor = "#ef4444";
+            insVol.style.background = "rgba(239, 68, 68, 0.1)";
+        } else {
+            insVol.innerHTML = `<span style="color:#10b981; font-weight:bold;">✅ Stable Injection Loading:</span> Sample volume (${currentVol.toFixed(1)} µL) preserves linear Gaussian distribution without column saturation.`;
+            insVol.style.borderLeftColor = "#10b981";
+            insVol.style.background = "rgba(15, 23, 42, 0.5)";
+        }
+    }
+
+    // --- GRAPHICS & PHYSICS ENGINE ---
+    function renderGridInfrastructure(currentTime = 0) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 1;
+        for (let i = 0; i <= 10; i++) {
+            let x = 50 + (i / 10) * (canvas.width - 70);
+            ctx.beginPath(); ctx.moveTo(x, 10); ctx.lineTo(x, canvas.height - 30); ctx.stroke();
+            ctx.fillStyle = '#64748b'; ctx.font = '10px monospace'; ctx.fillText(i + " min", x - 15, canvas.height - 12);
+        }
+        ctx.strokeStyle = '#334155'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(50, canvas.height - 30); ctx.lineTo(canvas.width - 20, canvas.height - 30); ctx.stroke();
+    }
+
+    function calculateGaussianSignalMatrix(t) {
+        let cumulativeAmplitude = 0;
+        let kineticShift = (1.0 / currentFlow) * (65 / currentPhaseB);
+        components.forEach(comp => {
+            let runningTR = comp.baseTR * kineticShift;
+            let spatialDisplacement = t - runningTR;
+            let expandedWidth = comp.width * (1.0 / currentFlow) * (1 + Math.abs(65 - currentPhaseB) * 0.026);
+            let peakHeightCoeff = (comp.baseArea * (currentVol / 10.0)) / (expandedWidth * Math.sqrt(2 * Math.PI));
+            let finalVisualHeight = Math.log10(peakHeightCoeff + 1) * 32;
+            cumulativeAmplitude += finalVisualHeight * Math.exp(-(spatialDisplacement * spatialDisplacement) / (2 * expandedWidth * expandedWidth));
+        });
+        cumulativeAmplitude += (Math.random() - 0.5) * 0.28; 
+        return cumulativeAmplitude;
+    }
+
+    function executeBatchRun() {
+        if(systemRunActive || interactiveVialState !== "QUEUED") return;
+        systemRunActive = true;
+        document.getElementById('injection-trigger-btn').disabled = true;
+        document.getElementById('btn-pdf').disabled = true;
+        document.getElementById('btn-json').disabled = true;
+        document.getElementById('system-status').innerText = "STATUS: ACQUIRING DATA...";
+        document.getElementById('system-status').style.color = "#facc15";
+        
+        let timelineStartPoint = performance.now();
+        
+        const detectorCenter = 270; 
+        const columnStart = 5;      
+
+        function compileRealtimeClusterStream() {
+            let temporalInterval = (performance.now() - timelineStartPoint) / 1000;
+            let timelineMinutes = (temporalInterval / 8) * 10.0; 
+            
+            if (timelineMinutes >= 10.0) {
+                timelineMinutes = 10.0;
+                systemRunActive = false;
+                terminateAcquisitionCycle();
+            } else {
+                renderGridInfrastructure(timelineMinutes);
+                
+                let kShift = (1.0 / currentFlow) * (65 / currentPhaseB);
+                
+                document.getElementById('band-mixed').setAttribute('x', columnStart);
+                document.getElementById('band-mixed').setAttribute('opacity', Math.max(0, 1 - timelineMinutes));
+                
+                components.forEach((comp, idx) => {
+                    let trueTR = comp.baseTR * kShift;
+                    let currentX = columnStart + (timelineMinutes / trueTR) * (detectorCenter - columnStart);
+                    
+                    let rectId = idx === 0 ? 'band-1' : idx === 1 ? 'band-2' : idx === 2 ? 'band-api' : 'band-4';
+                    let bandEl = document.getElementById(rectId);
+                    
+                    if (bandEl) {
+                        bandEl.setAttribute('x', currentX);
+                        bandEl.setAttribute('width', (idx === 2 ? currentVol : 4) + (timelineMinutes * 1.5));
+                        
+                        if (currentX > 290) {
+                            bandEl.setAttribute('opacity', 0.2);
+                        } else {
+                            bandEl.setAttribute('opacity', 1.0);
+                        }
+                    }
+                });
+
+                let currentSignalAmplitude = calculateGaussianSignalMatrix(timelineMinutes);
+                
+                ctx.strokeStyle = '#06b6d4'; ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                let boundaryPointer = true;
+                for (let t = 0; t <= timelineMinutes; t += 0.02) {
+                    let x = 50 + (t / 10.0) * (canvas.width - 70);
+                    let y = (canvas.height - 30) - calculateGaussianSignalMatrix(t);
+                    if (boundaryPointer) { ctx.moveTo(x, y); boundaryPointer = false; }
+                    else { ctx.lineTo(x, y); }
+                }
+                ctx.stroke();
+
+                let detectorRing = document.getElementById('detector-ring');
+                let detectorContainer = document.getElementById('detector-container');
+                if (currentSignalAmplitude > 15) {
+                    detectorRing.style.boxShadow = "0 0 15px 5px var(--cyan-glow)";
+                    detectorRing.style.background = "var(--cyan-glow)";
+                    detectorRing.style.color = "#000";
+                    detectorContainer.style.background = "rgba(6,182,212,0.3)";
+                } else if (currentSignalAmplitude > 2) {
+                    detectorRing.style.boxShadow = "0 0 8px 2px var(--cyan-glow)";
+                    detectorRing.style.background = "transparent";
+                    detectorRing.style.color = "var(--cyan-glow)";
+                    detectorContainer.style.background = "rgba(6,182,212,0.15)";
+                } else {
+                    detectorRing.style.boxShadow = "none";
+                    detectorRing.style.background = "transparent";
+                    detectorRing.style.color = "var(--cyan-glow)";
+                    detectorContainer.style.background = "rgba(6,182,212,0.1)";
+                }
+
+                requestAnimationFrame(compileRealtimeClusterStream);
+            }
+        }
+        compileRealtimeClusterStream();
+    }
+
+    function terminateAcquisitionCycle() {
+        document.getElementById('btn-pdf').disabled = false;
+        document.getElementById('btn-json').disabled = false;
+        document.getElementById('system-status').innerText = "STATUS: INTEGRATION COMPLETE";
+        document.getElementById('system-status').style.color = "#10b981";
+        
+        document.getElementById('detector-ring').style.boxShadow = "none";
+        document.getElementById('detector-ring').style.background = "transparent";
+        document.getElementById('detector-ring').style.color = "var(--cyan-glow)";
+        document.getElementById('detector-container').style.background = "rgba(6,182,212,0.1)";
+
+        let kineticShift = (1.0 / currentFlow) * (65 / currentPhaseB);
+        let matrixContainer = document.querySelector('#results-table tbody');
+        matrixContainer.innerHTML = "";
+        
+        computedArraysForValidation = [];
+        globalStatusPass = true;
+        
+        let eff = Math.max(0.1, (1.2 - Math.abs(currentFlow - 1.0) * 0.85) * (1 - Math.abs(currentPhaseB - 65) * 0.035));
+        let asym = 1.04 + Math.abs(currentFlow - 1.0) * 0.32 + Math.max(0, (65 - currentPhaseB) * 0.022) + (currentVol > 15 ? (currentVol - 15) * 0.045 : 0);
+        
+        components.forEach(comp => {
+            let pRT = comp.baseTR * kineticShift;
+            let pArea = comp.baseArea * (currentVol / 10.0) * (1 + (Math.random() - 0.5) * 0.004);
+            let pPlates = Math.round(12450 * eff * (comp.id === 3 ? 1 : 0.82));
+            let pTail = parseFloat((asym * (1 + (Math.random() - 0.5) * 0.012)).toFixed(2));
+            
+            computedArraysForValidation.push({
+                peak_id: comp.id, name: comp.name, retention_time_min: parseFloat(pRT.toFixed(3)), 
+                area_uv_s: Math.round(pArea), theoretical_plates: pPlates, tailing_factor: pTail
+            });
+        });
+
+        computedArraysForValidation.forEach(p => {
+            let pass = p.theoretical_plates >= 5000 && p.tailing_factor <= 1.5;
+            if(!pass) globalStatusPass = false;
+            
+            let badge = pass ? `<span style="color:#4ade80; font-weight:bold;">PASS</span>` : `<span style="color:#ef4444; font-weight:bold;">OOS/FAIL</span>`;
+            matrixContainer.innerHTML += `<tr>
+                <td>${p.peak_id}</td>
+                <td style="color:#e2e8f0; font-weight:700;">${p.name}</td>
+                <td>${p.retention_time_min.toFixed(3)}</td>
+                <td>${p.area_uv_s.toLocaleString()}</td>
+                <td style="color:${p.theoretical_plates >= 5000 ? '#4ade80' : '#ef4444'}">${p.theoretical_plates.toLocaleString()}</td>
+                <td style="color:${p.tailing_factor <= 1.5 ? '#4ade80' : '#ef4444'}">${p.tailing_factor.toFixed(2)}</td>
+                <td>${badge}</td>
+            </tr>`;
+        });
+    }
+
+    // --- INTEGRATION EXPORT FEATURES ---
+    function showJSONPayload() {
+        const payload = {
+            metadata: {
+                sample_id: "SMP-2026-09142",
+                instrument_id: "HPLC_DIDACTIC_NODE04",
+                acquisition_timestamp: new Date().toISOString(),
+                method_parameters: { flow_rate_ml_min: currentFlow, phase_b_percent: currentPhaseB, injection_volume_ul: currentVol },
+                alcoa_data_integrity: globalStatusPass ? "VERIFIED" : "COMPROMISED_OOS"
+            },
+            results_matrix: computedArraysForValidation
+        };
+        document.getElementById('json-output').innerText = JSON.stringify(payload, null, 2);
+        document.getElementById('json-modal').style.display = 'block';
+    }
+
+    // Modal PDF Report (Avoids window.open blocks)
+    function openPDFModal() {
+        if(computedArraysForValidation.length === 0) return;
+        
+        let rows = '';
+        computedArraysForValidation.forEach(p => {
+            let pass = p.theoretical_plates >= 5000 && p.tailing_factor <= 1.5;
+            rows += `<tr>
+                <td>${p.peak_id}</td><td><b>${p.name}</b></td><td>${p.retention_time_min}</td>
+                <td>${p.area_uv_s}</td><td>${p.theoretical_plates}</td><td>${p.tailing_factor}</td>
+                <td style="color:${pass ? '#059669' : '#dc2626'}; font-weight:bold;">${pass ? 'PASS' : 'OOS'}</td>
+            </tr>`;
+        });
+
+        document.getElementById('pdf-tbody').innerHTML = rows;
+        document.getElementById('pdf-date').innerText = new Date().toLocaleString();
+        document.getElementById('pdf-status').innerText = globalStatusPass ? 'PASS' : 'FAIL';
+        
+        document.getElementById('report-modal').style.display = 'flex';
+    }
+
+    window.onload = () => { renderGridInfrastructure(); recomputeSystemConcepts(); };
+</script>
+
+</body>
+</html>
