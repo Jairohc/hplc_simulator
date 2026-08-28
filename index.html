@@ -188,11 +188,17 @@
         }
         
         .pdf-title { text-align: center; border-bottom: 2px solid #334155; padding-bottom: 15px; font-family: Arial, sans-serif; margin-bottom: 20px; color: #0f172a; text-transform: uppercase; letter-spacing: 1px; }
-        .pdf-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; background: #f8fafc; padding: 20px; border: 1px solid #cbd5e1; border-radius: 4px; font-family: Arial, sans-serif; font-size: 13px;}
-        .pdf-table { width: 100%; border-collapse: collapse; margin-top: 20px; font-family: Arial, sans-serif; font-size: 12px;}
-        .pdf-table th { background: #1e293b; color: white; padding: 10px; text-align: left; text-transform: uppercase; font-size: 11px;}
-        .pdf-table td { border: 1px solid #cbd5e1; padding: 10px; font-family: monospace; }
-        .pdf-footer { margin-top: 50px; font-size: 11px; color: #64748b; border-top: 1px dashed #cbd5e1; padding-top: 15px; font-family: Arial, sans-serif; line-height: 1.5;}
+        
+        /* New CSS for Cumulative Batch Report Blocks */
+        .pdf-sample-block { margin-bottom: 30px; border-bottom: 2px dashed #cbd5e1; padding-bottom: 20px; page-break-inside: avoid; }
+        .pdf-sample-block:last-child { border-bottom: none; margin-bottom: 0; }
+        
+        .pdf-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; background: #f8fafc; padding: 15px; border: 1px solid #cbd5e1; border-radius: 4px; font-family: Arial, sans-serif; font-size: 13px;}
+        .pdf-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-family: Arial, sans-serif; font-size: 12px;}
+        .pdf-table th { background: #1e293b; color: white; padding: 8px; text-align: left; text-transform: uppercase; font-size: 11px;}
+        .pdf-table td { border: 1px solid #cbd5e1; padding: 8px; font-family: monospace; }
+        
+        .pdf-footer { margin-top: 40px; font-size: 11px; color: #64748b; border-top: 2px solid #334155; padding-top: 15px; font-family: Arial, sans-serif; line-height: 1.5; text-align: center;}
         
         .print-btn {
             background: #1e40af; color: white; padding: 12px 20px; border: none; border-radius: 6px; 
@@ -215,7 +221,7 @@
 
 <div class="didactic-banner no-print">
     <h2>HPLC Batch Processing & LIMS Simulator</h2>
-    <div><strong>UX Enahnced:</strong> Prepare multiple vials to create a sample queue. The autosampler will inject them sequentially. Learn how analytical parameters affect the final PDF output designed for LIMS parsing.</div>
+    <div><strong>Cumulative Workflow:</strong> Prepare multiple vials to create a sample queue. The autosampler will inject them sequentially. The final PDF Report will <u>accumulate all processed runs</u> for accurate LIMS parser training.</div>
 </div>
 
 <div class="lab-workspace no-print">
@@ -348,7 +354,7 @@
 
         <div style="background: rgba(30, 41, 59, 0.7); border: 1px solid var(--border-color); border-radius: 10px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.4); backdrop-filter: blur(10px);">
             <h3 style="color:#f8fafc; font-size:0.95rem; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;">Data Extraction Interface (LIMS)</h3>
-            <p style="font-size:0.75rem; color:#94a3b8; margin-bottom: 20px; line-height: 1.5;">Extract the PDF report corresponding to the most recently acquired sample. LIMS parsers use regex and spatial coordinates to scrape this file and map values to database fields.</p>
+            <p style="font-size:0.75rem; color:#94a3b8; margin-bottom: 20px; line-height: 1.5;">Extract the PDF batch report containing all samples processed in this session. LIMS parsers use regex and spatial coordinates to scrape this file and map values to database fields.</p>
             
             <div class="export-actions">
                 <button class="btn-export" id="btn-pdf" onclick="openPDFModal()" disabled>📄 EXPORT BATCH REPORT (PDF)</button>
@@ -361,16 +367,10 @@
     <div class="report-content">
         <span class="close-btn no-print" onclick="document.getElementById('report-modal').style.display='none'">X</span>
         
-        <h2 class="pdf-title">Certificate of Analysis - Instrument Output</h2>
-        <div class="pdf-meta">
-            <div><b>Sample ID:</b> <span id="pdf-sample-id">N/A</span><br><b>Acquisition Date:</b> <span id="pdf-date"></span></div>
-            <div><b>Method:</b> USP_ASSAY_V2<br><b>System Suitability:</b> <span id="pdf-status"></span></div>
-        </div>
+        <h2 class="pdf-title">Certificate of Analysis - Batch Report</h2>
         
-        <table class="pdf-table">
-            <thead><tr><th>Peak ID</th><th>Component Name</th><th>Retention Time (min)</th><th>Area (µV·s)</th><th>Plates (N)</th><th>Tailing (T)</th><th>ALCOA+ Status</th></tr></thead>
-            <tbody id="pdf-tbody"></tbody>
-        </table>
+        <!-- Dynamic content container for multiple samples -->
+        <div id="pdf-dynamic-content"></div>
         
         <div class="pdf-footer">
             * This document is generated for LIMS parser training and data workflow validation.<br>
@@ -388,6 +388,9 @@
     let currentRunSlotIndex = -1;
     let systemRunActive = false;
     let totalRunsCompleted = 0;
+    
+    // Accumulator for Batch Processing (Saves all runs data)
+    let batchResultsAccumulator = [];
 
     // Physical Parameters
     let currentFlow = 1.0;
@@ -611,6 +614,7 @@
         
         // UI Updates for Run Start
         document.getElementById('injection-trigger-btn').disabled = true;
+        // Keep PDF button enabled if there's history, otherwise disable
         document.getElementById('btn-pdf').disabled = true;
         
         let statText = document.getElementById('system-status');
@@ -757,7 +761,7 @@
         laser.style.background = "rgba(255,255,255,0.1)";
         laser.style.boxShadow = "none";
 
-        // Generate Final Data Matrix
+        // Generate Final Data Matrix for CURRENT Run
         let kineticShift = (1.0 / currentFlow) * (65 / currentPhaseB);
         let matrixContainer = document.querySelector('#results-table tbody');
         matrixContainer.innerHTML = "";
@@ -780,6 +784,7 @@
             });
         });
 
+        // 1) Show results on UI (latest run only)
         computedArraysForValidation.forEach(p => {
             let pass = p.theoretical_plates >= 5000 && p.tailing_factor <= 1.5;
             if(!pass) globalStatusPass = false;
@@ -795,28 +800,53 @@
                 <td>${badge}</td>
             </tr>`;
         });
+
+        // 2) Save result to ACCUMULATOR for PDF Batch Report
+        batchResultsAccumulator.push({
+            sampleId: `SMP-2026-BAT${String(totalRunsCompleted).padStart(3, '0')}`,
+            date: new Date().toLocaleString(),
+            status: globalStatusPass ? 'PASS' : 'FAIL',
+            data: [...computedArraysForValidation] // Copy by value
+        });
     }
 
-    // Modal PDF Report
+    // Modal PDF Report - Now loops through ALL runs saved in accumulator
     function openPDFModal() {
-        if(computedArraysForValidation.length === 0) return;
+        if(batchResultsAccumulator.length === 0) return;
         
-        let rows = '';
-        computedArraysForValidation.forEach(p => {
-            let pass = p.theoretical_plates >= 5000 && p.tailing_factor <= 1.5;
-            rows += `<tr>
-                <td>${p.peak_id}</td><td><b>${p.name}</b></td><td>${p.retention_time_min}</td>
-                <td>${p.area_uv_s}</td><td>${p.theoretical_plates}</td><td>${p.tailing_factor}</td>
-                <td style="color:${pass ? '#059669' : '#dc2626'}; font-weight:bold;">${pass ? 'PASS' : 'OOS'}</td>
-            </tr>`;
+        let batchHTML = '';
+        
+        batchResultsAccumulator.forEach(run => {
+            let tableRows = '';
+            
+            run.data.forEach(p => {
+                let pass = p.theoretical_plates >= 5000 && p.tailing_factor <= 1.5;
+                tableRows += `<tr>
+                    <td>${p.peak_id}</td><td><b>${p.name}</b></td><td>${p.retention_time_min}</td>
+                    <td>${p.area_uv_s}</td><td>${p.theoretical_plates}</td><td>${p.tailing_factor}</td>
+                    <td style="color:${pass ? '#059669' : '#dc2626'}; font-weight:bold;">${pass ? 'PASS' : 'OOS'}</td>
+                </tr>`;
+            });
+
+            // Status color rendering
+            let statusColor = run.status === 'PASS' ? '#059669' : '#dc2626';
+
+            // Create a discrete block for each Sample ID
+            batchHTML += `
+                <div class="pdf-sample-block">
+                    <div class="pdf-meta">
+                        <div><b>Sample ID:</b> ${run.sampleId}<br><b>Acquisition Date:</b> ${run.date}</div>
+                        <div><b>Method:</b> USP_ASSAY_V2<br><b>System Suitability:</b> <span style="color:${statusColor}; font-weight:bold;">${run.status}</span></div>
+                    </div>
+                    <table class="pdf-table">
+                        <thead><tr><th>Peak ID</th><th>Component Name</th><th>Retention Time (min)</th><th>Area (µV·s)</th><th>Plates (N)</th><th>Tailing (T)</th><th>ALCOA+ Status</th></tr></thead>
+                        <tbody>${tableRows}</tbody>
+                    </table>
+                </div>
+            `;
         });
 
-        document.getElementById('pdf-tbody').innerHTML = rows;
-        // Generate dynamic Sample ID based on runs
-        document.getElementById('pdf-sample-id').innerText = `SMP-2026-BAT${String(totalRunsCompleted).padStart(3, '0')}`;
-        document.getElementById('pdf-date').innerText = new Date().toLocaleString();
-        document.getElementById('pdf-status').innerText = globalStatusPass ? 'PASS' : 'FAIL';
-        
+        document.getElementById('pdf-dynamic-content').innerHTML = batchHTML;
         document.getElementById('report-modal').style.display = 'flex';
     }
 
