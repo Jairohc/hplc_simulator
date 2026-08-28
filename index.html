@@ -104,13 +104,21 @@
             position: relative; overflow: hidden; margin-top: 5px;
         }
         .detector-module {
-            position: absolute; right: 0; top: 0; bottom: 0; width: 60px; background: rgba(6,182,212,0.1);
-            border-left: 2px dashed var(--cyan-glow); display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 4px;
-            transition: all 0.1s;
+            position: absolute; right: 0; top: 0; bottom: 0; width: 60px; background: rgba(15, 23, 42, 0.8);
+            border-left: 2px solid #475569; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 4px;
+            transition: all 0.1s; z-index: 10;
         }
+        
+        /* Laser Beam Effect */
+        #detector-laser {
+            position: absolute; left: 10px; top: 0; bottom: 0; width: 2px;
+            background: rgba(255,255,255,0.1); transition: all 0.1s;
+        }
+
         .detector-icon-ring {
-            border: 2px solid var(--cyan-glow); color: var(--cyan-glow); border-radius: 50%; padding: 6px; margin-bottom: 2px;
-            transition: all 0.1s; display: flex; align-items: center; justify-content: center;
+            border: 2px solid #475569; color: #475569; border-radius: 50%; padding: 6px; margin-bottom: 2px;
+            transition: all 0.1s; display: flex; align-items: center; justify-content: center; background: #020617;
+            z-index: 2;
         }
 
         /* CONTROLS & DYNAMIC ALERT BOXES */
@@ -142,22 +150,14 @@
         .results-table td { padding: 8px; border-bottom: 1px solid #334155; font-family: monospace; }
         .results-table tr:hover { background: rgba(56, 189, 248, 0.04); }
 
-        .export-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .export-actions { display: block; }
         .btn-export {
-            padding: 12px; font-weight: bold; font-size: 0.8rem; border-radius: 6px; border: none; cursor: pointer; transition: all 0.2s;
+            width: 100%; padding: 14px; font-weight: bold; font-size: 0.85rem; border-radius: 6px; border: none; cursor: pointer; transition: all 0.2s;
         }
         .btn-pdf { background: #dc2626; color: white; border: 1px solid #b91c1c; }
-        .btn-json { background: #10b981; color: #022c22; border: 1px solid #059669; }
         .btn-export:disabled { background: #334155; color: #64748b; cursor: not-allowed; border: none; }
 
-        /* MODALS (JSON & PDF) */
-        #json-modal {
-            display: none; position: absolute; top: 20px; right: 20px; width: 450px; background: #0f172a;
-            border: 2px solid #38bdf8; border-radius: 8px; padding: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); z-index: 100;
-        }
-        #json-modal pre { font-family: monospace; font-size: 0.7rem; color: #4ade80; white-space: pre-wrap; overflow-y: auto; max-height: 400px; }
-        .close-btn { float: right; cursor: pointer; color: white; font-weight: bold; font-size: 1.2rem; }
-
+        /* MODALS (PDF) */
         #report-modal {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.85); z-index: 200; justify-content: center; align-items: center; padding: 20px;
@@ -179,8 +179,8 @@
             background: #1e3a8a; color: white; padding: 10px 20px; border: none; border-radius: 4px; 
             cursor: pointer; font-weight: bold; margin-top: 20px; display: block; width: 100%;
         }
+        .close-btn { float: right; cursor: pointer; color: white; font-weight: bold; font-size: 1.2rem; }
 
-        /* PRINT CSS - MAGIC HAPPENS HERE */
         @media print {
             body * { visibility: hidden; }
             #report-modal, #report-modal * { visibility: visible; }
@@ -195,7 +195,7 @@
 
 <div class="didactic-banner no-print">
     <h2>HPLC Lab-to-LIMS Integration Simulator</h2>
-    <div><strong>Goal for Engineers:</strong> Understand how physical lab actions translate into data structures. Learn standard vocabulary (Retention Time, Area, Plates, Tailing) and extract the resulting data payload via Legacy Report (PDF parsing) or Modern API (JSON payload).</div>
+    <div><strong>Goal for Engineers:</strong> Understand how physical lab actions translate into data structures. Learn standard vocabulary (Retention Time, Area, Plates, Tailing) and extract the resulting data payload via Legacy Report (PDF parsing).</div>
 </div>
 
 <div class="lab-workspace no-print">
@@ -275,18 +275,19 @@
             <div class="column-graphic">
                 <div style="font-size: 0.6rem; color: #94a3b8; font-weight: bold; margin-bottom: 5px;">ANALYTICAL COLUMN (DATA SEPARATION ENGINE)</div>
                 <svg width="320" height="40" viewBox="0 0 320 40" style="display:block;">
-                    <rect x="0" y="5" width="320" height="30" rx="4" fill="#030712" stroke="#475569" stroke-width="1.5"/>
+                    <rect x="0" y="5" width="280" height="30" rx="4" fill="#030712" stroke="#475569" stroke-width="1.5"/>
                     <rect id="band-mixed" x="-50" y="5" width="10" height="30" fill="#94a3b8" />
-                    <rect id="band-1" x="-50" y="5" width="4" height="30" fill="cyan" />
-                    <rect id="band-2" x="-50" y="5" width="6" height="30" fill="magenta" />
-                    <rect id="band-api" x="-50" y="5" width="10" height="30" fill="emerald" />
-                    <rect id="band-4" x="-50" y="5" width="8" height="30" fill="orange" />
+                    <rect id="band-1" x="-50" y="5" width="4" height="30" fill="#06b6d4" />
+                    <rect id="band-2" x="-50" y="5" width="6" height="30" fill="#d946ef" />
+                    <rect id="band-api" x="-50" y="5" width="10" height="30" fill="#10b981" />
+                    <rect id="band-4" x="-50" y="5" width="8" height="30" fill="#f97316" />
                 </svg>
                 <div class="detector-module" id="detector-container">
+                    <div id="detector-laser"></div>
                     <div class="detector-icon-ring" id="detector-ring">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="12" r="10"></circle><path d="M12 22v-3"></path><path d="M12 5V2"></path><path d="M22 12h-3"></path><path d="M5 12H2"></path></svg>
                     </div>
-                    <div style="font-size: 0.55rem; color: var(--cyan-glow); font-weight: 800; text-align: center;">OPTICAL<br>DETECTOR</div>
+                    <div style="font-size: 0.55rem; color: #94a3b8; font-weight: 800; text-align: center; z-index: 2;">OPTICAL<br>DETECTOR</div>
                 </div>
             </div>
         </div>
@@ -323,21 +324,14 @@
         </div>
 
         <div style="background: #0f172a; border: 2px solid #334155; border-radius: 8px; padding: 20px;">
-            <h3 style="color:#f8fafc; font-size:1rem; margin-bottom: 5px;">Data Extraction & Integration Interfaces</h3>
-            <p style="font-size:0.75rem; color:#94a3b8; margin-bottom: 15px;">Generate the data payload output. In LIMS integration, you will either parse the legacy human-readable PDF via regex/templates, or consume the JSON payload via REST API.</p>
+            <h3 style="color:#f8fafc; font-size:1rem; margin-bottom: 5px;">Data Extraction Interface</h3>
+            <p style="font-size:0.75rem; color:#94a3b8; margin-bottom: 15px;">Generate the data payload output. In LIMS integration, parse the legacy human-readable PDF via regex/templates mapping the generated output variables.</p>
             
             <div class="export-actions">
-                <button class="btn-export btn-pdf" id="btn-pdf" onclick="openPDFModal()" disabled>📄 EXPORT PDF (LEGACY PARSING)</button>
-                <button class="btn-export btn-json" id="btn-json" onclick="showJSONPayload()" disabled>{" "} VIEW JSON (API ENDPOINT)</button>
+                <button class="btn-export btn-pdf" id="btn-pdf" onclick="openPDFModal()" disabled>📄 EXPORT FINAL REPORT (PDF PARSING)</button>
             </div>
         </div>
     </div>
-</div>
-
-<div id="json-modal" class="no-print">
-    <span class="close-btn" onclick="document.getElementById('json-modal').style.display='none'">X</span>
-    <h4 style="color:white; margin-bottom: 10px;">API Payload Response (JSON)</h4>
-    <pre id="json-output"></pre>
 </div>
 
 <div id="report-modal">
@@ -377,10 +371,10 @@
     const ctx = canvas.getContext('2d');
     
     let components = [
-        { id: 1, name: "Impurity C", baseTR: 1.85, baseArea: 1240, width: 0.08 },
-        { id: 2, name: "Impurity A", baseTR: 3.12, baseArea: 3890, width: 0.12 },
-        { id: 3, name: "Active API Main", baseTR: 5.45, baseArea: 985420, width: 0.22 },
-        { id: 4, name: "Impurity B", baseTR: 7.80, baseArea: 1110, width: 0.15 }
+        { id: 1, name: "Impurity C", baseTR: 1.85, baseArea: 1240, width: 0.08, color: '#06b6d4' },
+        { id: 2, name: "Impurity A", baseTR: 3.12, baseArea: 3890, width: 0.12, color: '#d946ef' },
+        { id: 3, name: "Active API Main", baseTR: 5.45, baseArea: 985420, width: 0.22, color: '#10b981' },
+        { id: 4, name: "Impurity B", baseTR: 7.80, baseArea: 1110, width: 0.15, color: '#f97316' }
     ];
 
     let computedArraysForValidation = [];
@@ -549,7 +543,6 @@
         systemRunActive = true;
         document.getElementById('injection-trigger-btn').disabled = true;
         document.getElementById('btn-pdf').disabled = true;
-        document.getElementById('btn-json').disabled = true;
         document.getElementById('system-status').innerText = "STATUS: ACQUIRING DATA...";
         document.getElementById('system-status').style.color = "#facc15";
         
@@ -574,6 +567,8 @@
                 document.getElementById('band-mixed').setAttribute('x', columnStart);
                 document.getElementById('band-mixed').setAttribute('opacity', Math.max(0, 1 - timelineMinutes));
                 
+                let dominantColor = '#475569'; // Default inactive color
+
                 components.forEach((comp, idx) => {
                     let trueTR = comp.baseTR * kShift;
                     let currentX = columnStart + (timelineMinutes / trueTR) * (detectorCenter - columnStart);
@@ -585,10 +580,17 @@
                         bandEl.setAttribute('x', currentX);
                         bandEl.setAttribute('width', (idx === 2 ? currentVol : 4) + (timelineMinutes * 1.5));
                         
-                        if (currentX > 290) {
-                            bandEl.setAttribute('opacity', 0.2);
+                        // Fade out band after passing the detector laser (X = 270)
+                        if (currentX > detectorCenter + 5) {
+                            bandEl.setAttribute('opacity', Math.max(0, 1 - (currentX - detectorCenter)/10));
                         } else {
                             bandEl.setAttribute('opacity', 1.0);
+                        }
+
+                        // Determine if this band is currently in the optical window to trigger detector color
+                        let expandedWidth = comp.width * (1.0 / currentFlow) * (1 + Math.abs(65 - currentPhaseB) * 0.026);
+                        if (Math.abs(timelineMinutes - trueTR) < expandedWidth * 2) {
+                            dominantColor = comp.color;
                         }
                     }
                 });
@@ -608,21 +610,36 @@
 
                 let detectorRing = document.getElementById('detector-ring');
                 let detectorContainer = document.getElementById('detector-container');
+                let laser = document.getElementById('detector-laser');
+
+                // Dynamic UI updates for the Detector
                 if (currentSignalAmplitude > 15) {
-                    detectorRing.style.boxShadow = "0 0 15px 5px var(--cyan-glow)";
-                    detectorRing.style.background = "var(--cyan-glow)";
+                    detectorRing.style.boxShadow = `0 0 15px 5px ${dominantColor}`;
+                    detectorRing.style.background = dominantColor;
+                    detectorRing.style.borderColor = dominantColor;
                     detectorRing.style.color = "#000";
-                    detectorContainer.style.background = "rgba(6,182,212,0.3)";
+                    detectorContainer.style.background = "rgba(255,255,255,0.15)";
+                    laser.style.background = dominantColor;
+                    laser.style.boxShadow = `0 0 10px 2px ${dominantColor}`;
+                    laser.style.width = "4px";
                 } else if (currentSignalAmplitude > 2) {
-                    detectorRing.style.boxShadow = "0 0 8px 2px var(--cyan-glow)";
-                    detectorRing.style.background = "transparent";
-                    detectorRing.style.color = "var(--cyan-glow)";
-                    detectorContainer.style.background = "rgba(6,182,212,0.15)";
+                    detectorRing.style.boxShadow = `0 0 8px 2px ${dominantColor}`;
+                    detectorRing.style.background = "#020617";
+                    detectorRing.style.borderColor = dominantColor;
+                    detectorRing.style.color = dominantColor;
+                    detectorContainer.style.background = "rgba(15, 23, 42, 0.8)";
+                    laser.style.background = dominantColor;
+                    laser.style.boxShadow = "none";
+                    laser.style.width = "2px";
                 } else {
                     detectorRing.style.boxShadow = "none";
-                    detectorRing.style.background = "transparent";
-                    detectorRing.style.color = "var(--cyan-glow)";
-                    detectorContainer.style.background = "rgba(6,182,212,0.1)";
+                    detectorRing.style.background = "#020617";
+                    detectorRing.style.borderColor = "#475569";
+                    detectorRing.style.color = "#475569";
+                    detectorContainer.style.background = "rgba(15, 23, 42, 0.8)";
+                    laser.style.background = "rgba(255,255,255,0.1)";
+                    laser.style.boxShadow = "none";
+                    laser.style.width = "2px";
                 }
 
                 requestAnimationFrame(compileRealtimeClusterStream);
@@ -633,14 +650,19 @@
 
     function terminateAcquisitionCycle() {
         document.getElementById('btn-pdf').disabled = false;
-        document.getElementById('btn-json').disabled = false;
         document.getElementById('system-status').innerText = "STATUS: INTEGRATION COMPLETE";
         document.getElementById('system-status').style.color = "#10b981";
         
-        document.getElementById('detector-ring').style.boxShadow = "none";
-        document.getElementById('detector-ring').style.background = "transparent";
-        document.getElementById('detector-ring').style.color = "var(--cyan-glow)";
-        document.getElementById('detector-container').style.background = "rgba(6,182,212,0.1)";
+        // Reset detector UI
+        let detectorRing = document.getElementById('detector-ring');
+        let laser = document.getElementById('detector-laser');
+        detectorRing.style.boxShadow = "none";
+        detectorRing.style.background = "#020617";
+        detectorRing.style.borderColor = "#475569";
+        detectorRing.style.color = "#475569";
+        document.getElementById('detector-container').style.background = "rgba(15, 23, 42, 0.8)";
+        laser.style.background = "rgba(255,255,255,0.1)";
+        laser.style.boxShadow = "none";
 
         let kineticShift = (1.0 / currentFlow) * (65 / currentPhaseB);
         let matrixContainer = document.querySelector('#results-table tbody');
@@ -679,22 +701,6 @@
                 <td>${badge}</td>
             </tr>`;
         });
-    }
-
-    // --- INTEGRATION EXPORT FEATURES ---
-    function showJSONPayload() {
-        const payload = {
-            metadata: {
-                sample_id: "SMP-2026-09142",
-                instrument_id: "HPLC_DIDACTIC_NODE04",
-                acquisition_timestamp: new Date().toISOString(),
-                method_parameters: { flow_rate_ml_min: currentFlow, phase_b_percent: currentPhaseB, injection_volume_ul: currentVol },
-                alcoa_data_integrity: globalStatusPass ? "VERIFIED" : "COMPROMISED_OOS"
-            },
-            results_matrix: computedArraysForValidation
-        };
-        document.getElementById('json-output').innerText = JSON.stringify(payload, null, 2);
-        document.getElementById('json-modal').style.display = 'block';
     }
 
     // Modal PDF Report (Avoids window.open blocks)
